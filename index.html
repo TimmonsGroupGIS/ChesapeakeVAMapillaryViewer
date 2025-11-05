@@ -195,10 +195,10 @@
 
     <script>
         const TOKEN = 'MLY|24840280672250420|6fc0e204403850a11ccc043866f1b01d';
-        const START_ID = '711601415300444';
+        const START_ID = '861825009853437';
         const USERNAME = 'TimmonsPavement';
-        const START_DATE = '2025-11-01T00:00:00Z';
-        const END_DATE = '2025-11-08T00:00:00Z'; // Exclusive, so 11/08 23:59:59 is included
+        const START_DATE = '2025-10-17T00:00:00Z';
+        const END_DATE = '2025-10-18T00:00:00Z'; // Exclusive, so 11/08 23:59:59 is included
         
         let imageData = [];
         let isUpdatingFromViewer = false;
@@ -244,7 +244,7 @@
         
         // Mapillary direct button (always visible)
         document.getElementById('mapillary-direct-btn').addEventListener('click', () => {
-            window.open('https://www.mapillary.com/app/user/TimmonsPavement?lat=36.80128613582268&lng=-76.2609195062551&z=16.757060940340768&dateFrom=2025-11-01&username%5B%5D=TimmonsPavement&dateTo=2025-11-08&pKey=711601415300444', '_blank');
+            window.open('https://www.mapillary.com/app/user/TimmonsPavement?lat=36.80128613582268&lng=-76.2609195062551&z=16.757060940340768&dateFrom=2025-10-17&username%5B%5D=TimmonsPavement&dateTo=2025-10-18&pKey=861825009853437', '_blank');
         });
 
         // Initialize Mapillary Viewer
@@ -386,7 +386,7 @@
                     // Stop if we've collected enough images
                     if (allImages.length >= 10000) {
                         console.log('Reached maximum of 10,000 images');
-                        allImages = allImages.slice(0, 60000);
+                        allImages = allImages.slice(0, 10000);
                         break;
                     }
                 }
@@ -395,7 +395,7 @@
                 console.log(`\n=== FINAL RESULTS ===`);
                 console.log(`Total API requests: ${requestCount}`);
                 console.log(`Total images fetched from API: ${totalFetched}`);
-                console.log(`Total images matching date filter (Nov, 2025): ${allImages.length}`);
+                console.log(`Total images matching date filter (October 17, 2025): ${allImages.length}`);
                 console.log(`===================\n`);
                 
                 imageData = allImages;
@@ -405,7 +405,7 @@
                     return;
                 }
                 
-                status(`Loaded ${imageData.length} Timmons Group images for Chesapeake, VA (Nov 2025)`);
+                status(`Loaded ${imageData.length} Timmons Group images for Chesapeake, VA (Oct 17 2025)`);
                 addImagesToMap();
                 
                 // Fit map to show all points
