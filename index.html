@@ -163,6 +163,19 @@
             width: 35px;
             height: 35px;
         }
+        #bbox-indicator {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            background: rgba(66, 133, 244, 0.95);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            font-size: 12px;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -176,6 +189,7 @@
                 </div>
                 <div id="progress-text">Request 0 of ?</div>
             </div>
+            <div id="bbox-indicator">Loading bounding box...</div>
             <button id="mapillary-direct-btn">
                 <img src="https://play-lh.googleusercontent.com/z3qzEc13E2sDWky9LgqADojcdy8hrX_szuAAeX21k_dFe7GNXLIYXJtOu5RcE3_5Jz8" alt="Mapillary">
                 Open Timmons Chesapeake Mapillary Data Directly
@@ -197,7 +211,18 @@
         const TOKEN = 'MLY|24840280672250420|6fc0e204403850a11ccc043866f1b01d';
         const START_ID = '861825009853437';
         const USERNAME = 'TimmonsPavement';
-        const CAPTURE_DATE = '2025-10-25';  // Only images from this specific date
+        
+        // BOUNDING BOX CONFIGURATION
+        // Format: [min_longitude, min_latitude, max_longitude, max_latitude]
+        // This is a sample bounding box west of George W Carver Intermediate Center
+        // Center location: approximately 36.8013, -76.2609
+        // ADJUST THESE VALUES to match your desired area
+        const BBOX = {
+            min_lng: -76.2750,  // Western edge
+            min_lat: 36.7950,   // Southern edge
+            max_lng: -76.2600,  // Eastern edge (adjust to go further west)
+            max_lat: 36.8100    // Northern edge
+        };
         
         let imageData = [];
         let isUpdatingFromViewer = false;
@@ -220,7 +245,7 @@
             const percent = total > 0 ? Math.round((current / total) * 100) : 0;
             document.getElementById('progress-fill').style.width = percent + '%';
             document.getElementById('progress-text').textContent = 
-                `Request ${current} of ~${total} | ${filtered} images from ${CAPTURE_DATE}`;
+                `Request ${current} of ~${total} | ${filtered} images in bounding box`;
         };
         
         const showError = (message) => {
@@ -233,6 +258,12 @@
         
         const hideError = () => {
             document.getElementById('error-container').classList.remove('visible');
+        };
+        
+        // Update bounding box indicator
+        const updateBboxIndicator = () => {
+            const indicator = document.getElementById('bbox-indicator');
+            indicator.innerHTML = `BBox: ${BBOX.min_lng.toFixed(4)}, ${BBOX.min_lat.toFixed(4)}<br>to ${BBOX.max_lng.toFixed(4)}, ${BBOX.max_lat.toFixed(4)}`;
         };
         
         // Error dialog button handlers
@@ -276,15 +307,24 @@
                     { id: 'osm', type: 'raster', source: 'osm' }
                 ]
             },
-            center: [0, 0],
-            zoom: 2
+            center: [(BBOX.min_lng + BBOX.max_lng) / 2, (BBOX.min_lat + BBOX.max_lat) / 2],
+            zoom: 14
         });
 
-        // Fetch ALL user images filtered by specific date
+        // Check if a point is within the bounding box
+        function isInBoundingBox(lng, lat) {
+            return lng >= BBOX.min_lng && 
+                   lng <= BBOX.max_lng && 
+                   lat >= BBOX.min_lat && 
+                   lat <= BBOX.max_lat;
+        }
+
+        // Fetch ALL user images filtered by bounding box
         async function fetchAllUserImages() {
             try {
                 status('Loading images...');
                 showProgress(true);
+                updateBboxIndicator();
                 
                 let allImages = [];
                 let after = null;
@@ -297,7 +337,11 @@
                     const url = new URL('https://graph.mapillary.com/images');
                     url.searchParams.set('access_token', TOKEN);
                     url.searchParams.set('fields', 'id,geometry,compass_angle,sequence,captured_at');
-                    url.searchParams.set('creator_username', USERNAME);
+                    
+                    // Use bounding box parameter
+                    const bboxString = `${BBOX.min_lng},${BBOX.min_lat},${BBOX.max_lng},${BBOX.max_lat}`;
+                    url.searchParams.set('bbox', bboxString);
+                    
                     url.searchParams.set('limit', 2000);
                     if (after) {
                         url.searchParams.set('after', after);
@@ -320,51 +364,28 @@
                     
                     if (images.length === 0) break;
                     
-                    // Debug: log first few dates
+                    // Debug: log first few coordinates
                     if (requestCount === 1) {
-                        console.log(`Sample dates from first request (looking for ${CAPTURE_DATE}):`);
+                        console.log(`Sample coordinates from first request:`);
                         images.slice(0, 5).forEach(img => {
-                            const date = new Date(img.captured_at);
-                            const dateString = date.toISOString().split('T')[0];
-                            console.log(`  ${img.id}: ${img.captured_at} -> ${dateString}`);
+                            const coords = img.geometry?.coordinates;
+                            console.log(`  ${img.id}: [${coords?.[0]}, ${coords?.[1]}]`);
                         });
                     }
                     
-                    // Filter by specific date
+                    // Filter by username and verify they're in the bounding box
                     const filtered = images.filter(img => {
-                        if (!img.captured_at) return false;
+                        if (!img.geometry || !img.geometry.coordinates) return false;
                         
-                        // Convert to Date object
-                        let capturedDate;
-                        if (typeof img.captured_at === 'number') {
-                            capturedDate = new Date(img.captured_at);
-                        } else {
-                            capturedDate = new Date(img.captured_at);
-                        }
-                        
-                        // Extract just the date part (YYYY-MM-DD) in UTC
-                        const capturedDateString = capturedDate.toISOString().split('T')[0];
-                        
-                        // Compare dates
-                        return capturedDateString === CAPTURE_DATE;
+                        const [lng, lat] = img.geometry.coordinates;
+                        return isInBoundingBox(lng, lat);
                     });
                     
-                    console.log(`  Filtered to ${filtered.length} images from ${CAPTURE_DATE}`);
-                    
-                    // Debug: show why images are being filtered out
-                    if (filtered.length === 0 && images.length > 0 && requestCount === 1) {
-                        console.log('First image dates analysis:');
-                        images.slice(0, 3).forEach(img => {
-                            const date = new Date(img.captured_at);
-                            const dateString = date.toISOString().split('T')[0];
-                            const matches = dateString === CAPTURE_DATE;
-                            console.log(`  ${img.captured_at} -> ${dateString} -> ${matches ? 'MATCH' : 'NO MATCH'}`);
-                        });
-                    }
+                    console.log(`  Filtered to ${filtered.length} images in bounding box`);
                     
                     allImages = allImages.concat(filtered);
                     updateProgress(requestCount, estimatedTotal, allImages.length);
-                    status(`Loading: ${allImages.length} images from ${CAPTURE_DATE}...`);
+                    status(`Loading: ${allImages.length} images in bounding box...`);
                     
                     // Check if there's more data
                     if (data.paging && data.paging.cursors && data.paging.cursors.after) {
@@ -392,18 +413,18 @@
                 console.log(`\n=== FINAL RESULTS ===`);
                 console.log(`Total API requests: ${requestCount}`);
                 console.log(`Total images fetched from API: ${totalFetched}`);
-                console.log(`Total images from ${CAPTURE_DATE}: ${allImages.length}`);
+                console.log(`Total images in bounding box: ${allImages.length}`);
                 console.log(`===================\n`);
                 
                 imageData = allImages;
                 
                 if (imageData.length === 0) {
-                    status(`No images found from ${CAPTURE_DATE}`);
-                    showError(`No images found from ${CAPTURE_DATE}. The date may be incorrect, or there may be no images from that date.`);
+                    status(`No images found in bounding box`);
+                    showError(`No images found in the specified bounding box. You may need to adjust the coordinates.`);
                     return;
                 }
                 
-                status(`Loaded ${imageData.length} images from ${CAPTURE_DATE}`);
+                status(`Loaded ${imageData.length} images in bounding box`);
                 addImagesToMap();
                 
                 // Fit map to show all points
@@ -624,6 +645,45 @@
 
         // Initialize when map loads
         map.on('load', () => {
+            // Add bounding box rectangle to map
+            map.addSource('bbox', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [[
+                            [BBOX.min_lng, BBOX.min_lat],
+                            [BBOX.max_lng, BBOX.min_lat],
+                            [BBOX.max_lng, BBOX.max_lat],
+                            [BBOX.min_lng, BBOX.max_lat],
+                            [BBOX.min_lng, BBOX.min_lat]
+                        ]]
+                    }
+                }
+            });
+
+            map.addLayer({
+                id: 'bbox-outline',
+                type: 'line',
+                source: 'bbox',
+                paint: {
+                    'line-color': '#EA4335',
+                    'line-width': 3,
+                    'line-dasharray': [2, 2]
+                }
+            });
+
+            map.addLayer({
+                id: 'bbox-fill',
+                type: 'fill',
+                source: 'bbox',
+                paint: {
+                    'fill-color': '#EA4335',
+                    'fill-opacity': 0.1
+                }
+            });
+
             // Create empty sources first
             map.addSource('sequences', {
                 type: 'geojson',
