@@ -163,19 +163,6 @@
             width: 35px;
             height: 35px;
         }
-        #bbox-indicator {
-            position: absolute;
-            top: 60px;
-            left: 10px;
-            background: rgba(66, 133, 244, 0.95);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            z-index: 1000;
-            font-size: 12px;
-            font-family: monospace;
-        }
     </style>
 </head>
 <body>
@@ -189,7 +176,6 @@
                 </div>
                 <div id="progress-text">Request 0 of ?</div>
             </div>
-            <div id="bbox-indicator">Loading bounding box...</div>
             <button id="mapillary-direct-btn">
                 <img src="https://play-lh.googleusercontent.com/z3qzEc13E2sDWky9LgqADojcdy8hrX_szuAAeX21k_dFe7GNXLIYXJtOu5RcE3_5Jz8" alt="Mapillary">
                 Open Timmons Chesapeake Mapillary Data Directly
@@ -214,14 +200,12 @@
         
         // BOUNDING BOX CONFIGURATION
         // Format: [min_longitude, min_latitude, max_longitude, max_latitude]
-        // This is a sample bounding box west of George W Carver Intermediate Center
-        // Center location: approximately 36.8013, -76.2609
-        // ADJUST THESE VALUES to match your desired area
+        // Covers the residential streets west of George W Carver Intermediate Center
         const BBOX = {
-            min_lng: -76.2750,  // Western edge
-            min_lat: 36.7950,   // Southern edge
-            max_lng: -76.2600,  // Eastern edge (adjust to go further west)
-            max_lat: 36.8100    // Northern edge
+            min_lng: -76.2758,  // Western edge (Atlantic Avenue)
+            min_lat: 36.7990,   // Southern edge (below Broad Street)
+            max_lng: -76.2600,  // Eastern edge (near school)
+            max_lat: 36.8070    // Northern edge (Bainbridge Blvd area)
         };
         
         let imageData = [];
@@ -258,12 +242,6 @@
         
         const hideError = () => {
             document.getElementById('error-container').classList.remove('visible');
-        };
-        
-        // Update bounding box indicator
-        const updateBboxIndicator = () => {
-            const indicator = document.getElementById('bbox-indicator');
-            indicator.innerHTML = `BBox: ${BBOX.min_lng.toFixed(4)}, ${BBOX.min_lat.toFixed(4)}<br>to ${BBOX.max_lng.toFixed(4)}, ${BBOX.max_lat.toFixed(4)}`;
         };
         
         // Error dialog button handlers
@@ -324,7 +302,6 @@
             try {
                 status('Loading images...');
                 showProgress(true);
-                updateBboxIndicator();
                 
                 let allImages = [];
                 let after = null;
@@ -645,45 +622,6 @@
 
         // Initialize when map loads
         map.on('load', () => {
-            // Add bounding box rectangle to map
-            map.addSource('bbox', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Polygon',
-                        coordinates: [[
-                            [BBOX.min_lng, BBOX.min_lat],
-                            [BBOX.max_lng, BBOX.min_lat],
-                            [BBOX.max_lng, BBOX.max_lat],
-                            [BBOX.min_lng, BBOX.max_lat],
-                            [BBOX.min_lng, BBOX.min_lat]
-                        ]]
-                    }
-                }
-            });
-
-            map.addLayer({
-                id: 'bbox-outline',
-                type: 'line',
-                source: 'bbox',
-                paint: {
-                    'line-color': '#EA4335',
-                    'line-width': 3,
-                    'line-dasharray': [2, 2]
-                }
-            });
-
-            map.addLayer({
-                id: 'bbox-fill',
-                type: 'fill',
-                source: 'bbox',
-                paint: {
-                    'fill-color': '#EA4335',
-                    'fill-opacity': 0.1
-                }
-            });
-
             // Create empty sources first
             map.addSource('sequences', {
                 type: 'geojson',
